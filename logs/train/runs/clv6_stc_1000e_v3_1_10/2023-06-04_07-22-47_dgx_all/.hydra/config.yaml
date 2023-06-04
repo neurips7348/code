@@ -1,0 +1,112 @@
+task_name: train
+run_name: ${data.name}_${model.name}
+timestamp: ${now:%Y-%m-%d}_${now:%H-%M-%S}
+server_name: ${oc.env:SERVER_NAME}
+gpu_name: ${oc.env:GPU_NAME}
+tags:
+- ${data.name}
+- ${model.name}
+train: true
+test: false
+ckpt_path: null
+seed: null
+data:
+  _target_: src.data.clevr6_aug_datamodule.CLEVR6AugDataModule
+  name: clv6_stc_1000e
+  data_dir: /workspace/dataset/clevr_with_masks/CLEVR6
+  img_size: 128
+  crop_size: 192
+  template_size: 240
+  batch_size: 64
+  num_workers: 4
+  pin_memory: false
+  transform_contents: scale,translate,color
+model:
+  _target_: src.models.slotaug_ae_module.LitSlotAugAutoEncoder
+  name: v3_1_10
+  optimizer:
+    _target_: torch.optim.AdamW
+    _partial_: true
+    lr: 0.0004
+  scheduler:
+    scheduler:
+      _target_: torch.optim.lr_scheduler.LambdaLR
+      _partial_: true
+    warmup_steps: 20
+    decay_steps: 200
+    decay_rate: 0.5
+  net:
+    _target_: src.models.components.slotaug.slotaug_ae.SlotAugAutoEncoder
+    num_slots: 7
+    num_iter: 3
+    num_iter_insts: 1
+    num_attn_heads: 1
+    slot_dim: 64
+    hid_dim: 64
+    mlp_hid_dim: 128
+    eps: 1.0e-08
+    enc_depth: 4
+    dec_init_size: 8
+    dec_depth: 6
+    dec_hid_dim: 64
+    aux_identity: true
+  loss_sc_weight: 0.1
+callbacks:
+  model_checkpoint:
+    _target_: pytorch_lightning.callbacks.ModelCheckpoint
+    dirpath: ${paths.output_dir}/checkpoints
+    filename: epoch={epoch:03d}_val_ari={val/ari_aug:.4f}
+    monitor: val/ari_aug
+    verbose: false
+    save_last: true
+    save_top_k: -1
+    mode: max
+    auto_insert_metric_name: false
+    save_weights_only: false
+    every_n_train_steps: null
+    train_time_interval: null
+    every_n_epochs: 40
+    save_on_train_epoch_end: false
+  model_summary:
+    _target_: pytorch_lightning.callbacks.RichModelSummary
+    max_depth: -1
+  rich_progress_bar:
+    _target_: pytorch_lightning.callbacks.RichProgressBar
+  learning_rate_monitor:
+    _target_: pytorch_lightning.callbacks.LearningRateMonitor
+    logging_interval: epoch
+logger:
+  wandb:
+    _target_: pytorch_lightning.loggers.wandb.WandbLogger
+    name: ${timestamp}_${server_name}_${gpu_name}
+    save_dir: ${paths.output_dir}
+    offline: false
+    id: null
+    anonymous: null
+    project: neurips2023
+    log_model: false
+    prefix: ''
+    group: ${run_name}
+    tags: ${tags}
+    job_type: ''
+trainer:
+  _target_: pytorch_lightning.Trainer
+  default_root_dir: ${paths.output_dir}
+  min_epochs: 1
+  max_epochs: 1000
+  accelerator: gpu
+  devices: 1
+  precision: 16
+  check_val_every_n_epoch: 20
+  deterministic: false
+  gradient_clip_val: 5.0
+paths:
+  root_dir: ${oc.env:PROJECT_ROOT}
+  data_dir: ${paths.root_dir}/data/
+  log_dir: ${paths.root_dir}/logs/
+  output_dir: ${hydra:runtime.output_dir}
+  work_dir: ${hydra:runtime.cwd}
+extras:
+  ignore_warnings: false
+  enforce_tags: true
+  print_config: true
