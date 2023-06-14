@@ -98,23 +98,6 @@ class LitSlotAugAutoEncoder(LightningModule):
         loss_sc = self.criterion(outputs["slots_ori_revisited"], outputs["slots_ori"].detach()) # slot consistency
 
         outputs["attns_ori2aug"], outputs["normed_attns_ori2aug"] = masks_to_attns(outputs["masks_ori2aug"])
-        # TODO: our convention is get obj_pos from alpha masks, but here is not the case
-        obj_pos_aug = get_obj_pos_from_attns(outputs["normed_attns_aug"])
-        obj_pos_ori2aug = get_obj_pos_from_attns(outputs["normed_attns_ori2aug"])
-
-        obj_pos_filtered_ori2aug, valid_slots_mask_ori2aug  = filter_no_obj(obj_pos_ori2aug, outputs["attns_ori2aug"], replace_value=-2.0) # -2 for no_obj
-        obj_pos_filtered_aug, valid_slots_mask_aug  = filter_no_obj(obj_pos_aug, outputs["attns_aug"], replace_value=-2.0) # -2 for no_obj
-        obj_pos_filtered_ori2aug, background_mask_ori2aug  = filter_background(obj_pos_filtered_ori2aug, outputs["attns_ori2aug"], replace_value=2.0) # 2 for background
-        obj_pos_filtered_aug, background_mask_aug  = filter_background(obj_pos_filtered_aug, outputs["attns_aug"], replace_value=2.0) # 2 for background
-
-        matched_idxs = matching_pairs(obj_pos_filtered_aug, obj_pos_filtered_ori2aug) # (B, K)
-        slots_aug = rearrange_by_matched_idx(outputs["slots_aug"], matched_idxs)
-        obj_pos_filtered_aug = rearrange_by_matched_idx(obj_pos_filtered_aug, matched_idxs)
-        valid_slots_mask_aug = rearrange_by_matched_idx(valid_slots_mask_aug, matched_idxs)
-        
-        valid_slots_mask = (valid_slots_mask_ori2aug * valid_slots_mask_aug).unsqueeze(-1)
-        slots_ori2aug = outputs["slots_ori2aug"] * valid_slots_mask
-        slots_aug = slots_aug * valid_slots_mask
 
         return {"loss_ori": loss_ori, 
                 "loss_aug": loss_aug,
