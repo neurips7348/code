@@ -1,0 +1,10 @@
+- experiment=slotaug/clv6.yaml
+- data.data_dir=/workspace/dataset/clevr_with_masks/CLEVR6
+- data.name=clv6_stc_1000e
+- data.transform_contents='scale,translate,color'
+- +model.loss_sc_weight=0.1
+- +model.net.aux_identity=True
+- model.name=v3_1_10
+- model.scheduler.warmup_steps=20
+- model.scheduler.decay_steps=200
+- trainer.max_epochs=1000
